@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resto-Pub Cloud Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0e14;
+            color: #e2e8f0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .active-table {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+            color: #000;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-24">
+
+    <!-- Auth & Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b0e14]">
+        <div class="text-center">
+            <div class="w-16 h-16 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-amber-500 font-medium tracking-widest">SİSTEM YÜKLƏNİR...</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 px-6 py-4 glass-card border-b border-white/5">
+        <div class="flex justify-between items-center max-w-7xl mx-auto">
+            <div>
+                <h1 class="text-xl font-bold text-amber-500">PUB <span class="text-white">CLOUD</span></h1>
+                <p class="text-xs text-slate-400" id="currentDate"></p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="switchTab('main')" class="p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700 transition">
+                    <i data-lucide="layout-grid" class="w-6 h-6"></i>
+                </button>
+                <button onclick="switchTab('archive')" class="p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700 transition">
+                    <i data-lucide="history" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto p-4 lg:p-6">
+        
+        <!-- Dashboard / Tables Tab -->
+        <section id="tab-main" class="tab-content">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="tablesGrid">
+                <!-- Tables injected via JS -->
+            </div>
+        </section>
+
+        <!-- Archive Tab -->
+        <section id="tab-archive" class="tab-content hidden">
+            <div class="flex justify-between items-end mb-6">
+                <h2 class="text-2xl font-bold">Satış Tarixçəsi</h2>
+                <div class="text-right">
+                    <p class="text-slate-400 text-sm">Günlük Ciro</p>
+                    <p class="text-2xl font-bold text-amber-500" id="totalDailyRevenue">0.00 ₼</p>
+                </div>
+            </div>
+            <div class="space-y-3" id="archiveList">
+                <!-- Archive items injected via JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Order / Table Detail Modal -->
+    <div id="tableModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeTableModal()"></div>
+        <div class="absolute bottom-0 left-0 right-0 top-10 md:top-20 bg-[#0b0e14] rounded-t-[2.5rem] border-t border-white/10 flex flex-col">
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <span id="modalTableName">Masa</span>
+                        <span id="modalTableTimer" class="text-sm font-mono bg-white/5 px-2 py-1 rounded text-amber-500">00:00:00</span>
+                    </h2>
+                    <p class="text-sm text-slate-400" id="modalTableStatus">Sifariş gözlənilir</p>
+                </div>
+                <button onclick="closeTableModal()" class="p-2 bg-white/5 rounded-full">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+                <!-- Menu Selection -->
+                <div class="w-full md:w-3/5 p-4 overflow-y-auto scrollbar-hide border-r border-white/5">
+                    <div class="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide" id="menuCategories">
+                        <!-- Categories -->
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="menuItemsGrid">
+                        <!-- Items -->
+                    </div>
+                </div>
+
+                <!-- Current Order / Receipt Area -->
+                <div class="w-full md:w-2/5 p-6 bg-slate-900/30 flex flex-col">
+                    <h3 class="font-bold mb-4 flex items-center gap-2">
+                        <i data-lucide="shopping-cart" class="w-5 h-5"></i> Cari Sifariş
+                    </h3>
+                    <div class="flex-1 overflow-y-auto pr-2 space-y-3 mb-6" id="currentOrderList">
+                        <!-- Selected items -->
+                    </div>
+                    <div class="pt-4 border-t border-white/10 space-y-4">
+                        <div class="flex justify-between items-center text-xl font-bold">
+                            <span>Cəmi:</span>
+                            <span id="modalTotalAmount" class="text-amber-500">0.00 ₼</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="clearTable()" class="py-4 rounded-2xl bg-red-500/10 text-red-500 font-bold border border-red-500/20 hover:bg-red-500 hover:text-white transition">
+                                SIFIRLA
+                            </button>
+                            <button onclick="checkoutTable()" class="py-4 rounded-2xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition shadow-lg shadow-amber-500/20">
+                                ÖDƏNİŞ ET
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Preview (Hidden normally) -->
+    <div id="receiptModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-md"></div>
+        <div class="relative bg-white text-black w-full max-w-sm p-8 rounded-sm shadow-2xl font-mono">
+            <div class="text-center border-b-2 border-dashed border-black pb-4 mb-4">
+                <h2 class="text-2xl font-bold italic">RESTO-PUB CLOUD</h2>
+                <p class="text-xs">Bulud Sistemi - Hesab Faktura</p>
+                <p class="text-xs mt-2" id="receiptDate"></p>
+            </div>
+            <div class="mb-4 text-sm">
+                <div class="flex justify-between"><span>Masa:</span> <span id="receiptTableNum"></span></div>
+                <div class="flex justify-between"><span>Müddət:</span> <span id="receiptDuration"></span></div>
+            </div>
+            <div class="space-y-1 mb-6 text-sm" id="receiptItems">
+                <!-- Items list -->
+            </div>
+            <div class="border-t-2 border-dashed border-black pt-4 mb-8">
+                <div class="flex justify-between text-xl font-bold">
+                    <span>CƏMİ:</span>
+                    <span id="receiptTotal"></span>
+                </div>
+            </div>
+            <div class="text-center text-xs space-y-1">
+                <p>Bizi seçdiyiniz üçün təşəkkürlər!</p>
+                <p>*** NUŞ OLSUN ***</p>
+            </div>
+            <button onclick="confirmPayment()" class="mt-8 w-full bg-black text-white py-4 font-bold rounded-lg hover:opacity-90 active:scale-95 transition">
+                ÖDƏNİŞİ TƏSDİQLƏ
+            </button>
+            <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="mt-2 w-full py-2 text-xs text-gray-500 underline">Geri qayıt</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, updateDoc, addDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuration
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'resto-pub-101';
+
+        // State
+        let user = null;
+        let tables = [];
+        let archive = [];
+        let activeTableId = null;
+        let activeCategory = 'Pivələr';
+
+        const menu = [
+            { category: 'Pivələr', items: [
+                { id: 'p1', name: 'Xırdalan 0.5L', price: 4.50 },
+                { id: 'p2', name: 'Efes Draft 0.5L', price: 6.00 },
+                { id: 'p3', name: 'Corona 0.33L', price: 8.50 },
+                { id: 'p4', name: 'Paulaner 0.5L', price: 9.00 }
+            ]},
+            { category: 'Mezələr', items: [
+                { id: 'm1', name: 'Püstə', price: 5.00 },
+                { id: 'm2', name: 'Saçaqlı pendir', price: 3.50 },
+                { id: 'm3', name: 'Noxud', price: 2.50 },
+                { id: 'm4', name: 'Kartof Fri', price: 4.00 }
+            ]},
+            { category: 'İsti Yemeklər', items: [
+                { id: 'y1', name: 'Toyuq qanadları', price: 12.00 },
+                { id: 'y2', name: 'Sosis assorti', price: 18.00 },
+                { id: 'y3', name: 'Can əti ləngəti', price: 15.50 }
+            ]},
+            { category: 'İçkilər', items: [
+                { id: 'd1', name: 'Coca-Cola 0.33L', price: 2.50 },
+                { id: 'd2', name: 'Qazlı Su', price: 1.50 },
+                { id: 'd3', name: 'Ev Sayı Limonad', price: 4.00 }
+            ]}
+        ];
+
+        // Safe Lucide helper
+        const refreshIcons = () => {
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        };
+
+        // Initialization
+        const init = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+            }
+        };
+
+        onAuthStateChanged(auth, (u) => {
+            user = u;
+            if (user) {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                setupListeners();
+                updateTime();
+                refreshIcons();
+            }
+        });
+
+        // Listeners
+        const setupListeners = () => {
+            if (!user) return;
+
+            // Listen for tables
+            const tablesRef = collection(db, 'artifacts', appId, 'public', 'data', 'tables');
+            onSnapshot(tablesRef, (snapshot) => {
+                tables = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (tables.length === 0) seedTables();
+                renderTables();
+                if (activeTableId) renderOrderDetails();
+            }, (error) => console.error("Firestore error:", error));
+
+            // Listen for archive
+            const archiveRef = collection(db, 'artifacts', appId, 'public', 'data', 'archive');
+            onSnapshot(archiveRef, (snapshot) => {
+                archive = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderArchive();
+            });
+        };
+
+        const seedTables = async () => {
+            for (let i = 1; i <= 11; i++) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tables', `table-${i}`), {
+                    name: `Masa ${i}`,
+                    status: 'empty',
+                    orders: [],
+                    startTime: null
+                });
+            }
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tables', 'kabinet-1'), { name: 'Kabinet 1', status: 'empty', orders: [], startTime: null });
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tables', 'kabinet-2'), { name: 'Kabinet 2', status: 'empty', orders: [], startTime: null });
+        };
+
+        // UI Updates
+        const renderTables = () => {
+            const grid = document.getElementById('tablesGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            
+            // Sort tables alphabetically or by ID suffix
+            const sortedTables = [...tables].sort((a, b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
+
+            sortedTables.forEach(table => {
+                const isActive = table.status === 'active';
+                const total = (table.orders || []).reduce((sum, o) => sum + (o.price * o.count), 0);
+                
+                const card = document.createElement('div');
+                card.className = `p-6 rounded-[2.5rem] cursor-pointer transition-all duration-300 transform active:scale-95 flex flex-col justify-between h-44 ${isActive ? 'active-table' : 'glass-card hover:border-white/20'}`;
+                card.onclick = () => openTableModal(table.id);
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <span class="text-lg font-bold">${table.name}</span>
+                        ${isActive ? '<span class="w-3 h-3 rounded-full bg-white animate-pulse"></span>' : '<i data-lucide="minus" class="w-4 h-4 opacity-30"></i>'}
+                    </div>
+                    <div>
+                        <p class="text-sm font-mono timer-display" data-start="${table.startTime}">${isActive ? 'Yüklənir...' : 'Masa Boşdur'}</p>
+                        <p class="text-xl font-bold mt-1">${isActive ? total.toFixed(2) + ' ₼' : '0.00 ₼'}</p>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            refreshIcons();
+            startLocalTimers();
+        };
+
+        const renderArchive = () => {
+            const list = document.getElementById('archiveList');
+            if (!list) return;
+            const sortedArchive = [...archive].sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+            list.innerHTML = '';
+            
+            let total = 0;
+            sortedArchive.forEach(item => {
+                total += item.total;
+                const div = document.createElement('div');
+                div.className = 'glass-card p-4 rounded-2xl flex justify-between items-center';
+                div.innerHTML = `
+                    <div>
+                        <p class="font-bold">${item.tableName}</p>
+                        <p class="text-xs text-slate-400">${item.duration || '00:00:00'} müddət</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-amber-500 font-bold">${item.total.toFixed(2)} ₼</p>
+                        <p class="text-[10px] opacity-40">${item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleTimeString() : ''}</p>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+            const revenueEl = document.getElementById('totalDailyRevenue');
+            if (revenueEl) revenueEl.innerText = `${total.toFixed(2)} ₼`;
+        };
+
+        // Modal Logic
+        window.openTableModal = (id) => {
+            activeTableId = id;
+            document.getElementById('tableModal').classList.remove('hidden');
+            renderOrderDetails();
+            renderMenu();
+        };
+
+        window.closeTableModal = () => {
+            activeTableId = null;
+            document.getElementById('tableModal').classList.add('hidden');
+        };
+
+        const renderMenu = () => {
+            const cats = document.getElementById('menuCategories');
+            if (cats) {
+                cats.innerHTML = menu.map(m => `
+                    <button onclick="setActiveCategory('${m.category}')" class="px-5 py-2 rounded-full whitespace-nowrap transition ${activeCategory === m.category ? 'bg-amber-500 text-black font-bold' : 'bg-white/5 text-slate-400'}">
+                        ${m.category}
+                    </button>
+                `).join('');
+            }
+
+            const grid = document.getElementById('menuItemsGrid');
+            if (grid) {
+                const categoryObj = menu.find(m => m.category === activeCategory);
+                const items = categoryObj ? categoryObj.items : [];
+                grid.innerHTML = items.map(item => `
+                    <div onclick="addToOrder('${item.id}')" class="glass-card p-4 rounded-2xl cursor-pointer hover:bg-white/5 active:scale-95 transition">
+                        <p class="font-bold text-sm h-10 overflow-hidden">${item.name}</p>
+                        <p class="text-amber-500 font-bold mt-2">${item.price.toFixed(2)} ₼</p>
+                    </div>
+                `).join('');
+            }
+        };
+
+        window.setActiveCategory = (c) => {
+            activeCategory = c;
+            renderMenu();
+        };
+
+        const renderOrderDetails = () => {
+            const table = tables.find(t => t.id === activeTableId);
+            if (!table) return;
+
+            document.getElementById('modalTableName').innerText = table.name;
+            document.getElementById('modalTableStatus').innerText = table.status === 'active' ? 'Xidmət davam edir' : 'Boş masa';
+            
+            const list = document.getElementById('currentOrderList');
+            if (list) {
+                list.innerHTML = '';
+                let total = 0;
+                (table.orders || []).forEach((order, index) => {
+                    total += (order.price * order.count);
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center py-2 border-b border-white/5';
+                    item.innerHTML = `
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">${order.name}</p>
+                            <p class="text-xs text-slate-500">${order.price.toFixed(2)} ₼ x ${order.count}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="updateCount(${index}, -1)" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">-</button>
+                            <span class="font-mono">${order.count}</span>
+                            <button onclick="updateCount(${index}, 1)" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">+</button>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+                document.getElementById('modalTotalAmount').innerText = `${total.toFixed(2)} ₼`;
+            }
+            
+            const timerEl = document.getElementById('modalTableTimer');
+            if (timerEl) timerEl.setAttribute('data-start', table.startTime);
+        };
+
+        // Data Ops
+        window.addToOrder = async (itemId) => {
+            const tableRef = doc(db, 'artifacts', appId, 'public', 'data', 'tables', activeTableId);
+            const table = tables.find(t => t.id === activeTableId);
+            const menuItem = menu.flatMap(m => m.items).find(i => i.id === itemId);
+            
+            let orders = [...(table.orders || [])];
+            const existing = orders.find(o => o.id === itemId);
+            
+            if (existing) {
+                existing.count++;
+            } else {
+                orders.push({ ...menuItem, count: 1 });
+            }
+
+            const updates = { orders: orders };
+            if (table.status !== 'active') {
+                updates.status = 'active';
+                updates.startTime = Date.now();
+            }
+
+            await updateDoc(tableRef, updates);
+        };
+
+        window.updateCount = async (index, delta) => {
+            const tableRef = doc(db, 'artifacts', appId, 'public', 'data', 'tables', activeTableId);
+            const table = tables.find(t => t.id === activeTableId);
+            let orders = [...(table.orders || [])];
+            
+            orders[index].count += delta;
+            if (orders[index].count <= 0) orders.splice(index, 1);
+            
+            await updateDoc(tableRef, { orders });
+        };
+
+        window.clearTable = async () => {
+            if (!confirm('Masadakı bütün sifarişləri ləğv etmək istəyirsiniz?')) return;
+            const tableRef = doc(db, 'artifacts', appId, 'public', 'data', 'tables', activeTableId);
+            await updateDoc(tableRef, {
+                status: 'empty',
+                orders: [],
+                startTime: null
+            });
+            closeTableModal();
+        };
+
+        window.checkoutTable = () => {
+            const table = tables.find(t => t.id === activeTableId);
+            if (!table || !table.orders || table.orders.length === 0) return;
+
+            const total = table.orders.reduce((sum, o) => sum + (o.price * o.count), 0);
+            const duration = document.getElementById('modalTableTimer').innerText;
+
+            document.getElementById('receiptTableNum').innerText = table.name;
+            document.getElementById('receiptDuration').innerText = duration;
+            document.getElementById('receiptDate').innerText = new Date().toLocaleString('az-AZ');
+            document.getElementById('receiptTotal').innerText = `${total.toFixed(2)} ₼`;
+            
+            const itemContainer = document.getElementById('receiptItems');
+            itemContainer.innerHTML = table.orders.map(o => `
+                <div class="flex justify-between">
+                    <span>${o.name} x${o.count}</span>
+                    <span>${(o.price * o.count).toFixed(2)}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('receiptModal').classList.remove('hidden');
+        };
+
+        window.confirmPayment = async () => {
+            const table = tables.find(t => t.id === activeTableId);
+            const total = table.orders.reduce((sum, o) => sum + (o.price * o.count), 0);
+            const duration = document.getElementById('modalTableTimer').innerText;
+
+            // Save to Archive
+            const archiveRef = collection(db, 'artifacts', appId, 'public', 'data', 'archive');
+            await addDoc(archiveRef, {
+                tableName: table.name,
+                total: total,
+                duration: duration,
+                timestamp: serverTimestamp()
+            });
+
+            // Reset Table
+            const tableRef = doc(db, 'artifacts', appId, 'public', 'data', 'tables', activeTableId);
+            await updateDoc(tableRef, {
+                status: 'empty',
+                orders: [],
+                startTime: null
+            });
+
+            document.getElementById('receiptModal').classList.add('hidden');
+            closeTableModal();
+        };
+
+        // Navigation
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById(`tab-${tab}`);
+            if (target) target.classList.remove('hidden');
+        };
+
+        // Time & Helpers
+        const updateTime = () => {
+            const now = new Date();
+            const dateEl = document.getElementById('currentDate');
+            if (dateEl) {
+                dateEl.innerText = now.toLocaleDateString('az-AZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            }
+        };
+
+        let timerInterval = null;
+        const startLocalTimers = () => {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                document.querySelectorAll('.timer-display, #modalTableTimer').forEach(el => {
+                    const start = el.getAttribute('data-start');
+                    if (start && start !== 'null') {
+                        const diff = Date.now() - parseInt(start);
+                        const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+                        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+                        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                        el.innerText = `${h}:${m}:${s}`;
+                    }
+                });
+            }, 1000);
+        };
+
+        init();
+    </script>
+</body>
+</html>
